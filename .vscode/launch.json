@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Image Color Detection",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/CGIP/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/CGIP",
+            "justMyCode": true
+        }
+    ]
+}

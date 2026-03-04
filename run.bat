@@ -1,5 +1,7 @@
 @echo off
 echo Starting Image Color Detection System...
 cd CGIP
-python main.py
+"..\.venv\Scripts\python.exe" main.py
 pause
+
+

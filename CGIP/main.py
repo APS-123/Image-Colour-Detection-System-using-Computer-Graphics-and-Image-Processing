@@ -98,17 +98,11 @@ class ColorDetectionApp:
         self.image_canvas.bind("<ButtonPress-1>", self.on_mouse_down)
         self.image_canvas.bind("<B1-Motion>", self.on_mouse_drag)
         self.image_canvas.bind("<ButtonRelease-1>", self.on_mouse_up)
+        self.image_canvas.bind("<Configure>", self.on_canvas_resize)
         
-        # Placeholder text
-        self.placeholder_id = self.image_canvas.create_text(
-            300, 200,
-            text="📷 No Image Loaded\n\n"
-                 "Click 'Select Image' button below\n"
-                 "to get started",
-            font=("Segoe UI", 16),
-            fill="#606060",
-            justify=tk.CENTER
-        )
+        # Placeholder text (will be centered on resize)
+        self.placeholder_id = None
+        self.root.after(100, self.center_placeholder)
         
         # Button panel
         button_frame = tk.Frame(left_panel, bg="#2a2a2a")
@@ -259,6 +253,40 @@ class ColorDetectionApp:
         self.status_label.config(text=f"💡 {message}", bg=color)
         self.root.update()
     
+    def on_canvas_resize(self, event=None):
+        """Handle canvas resize event and recenter placeholder if visible"""
+        if self.placeholder_id is not None and self.original_image is None:
+            self.center_placeholder()
+    
+    def center_placeholder(self):
+        """Create or update placeholder text centered in canvas"""
+        canvas_width = self.image_canvas.winfo_width()
+        canvas_height = self.image_canvas.winfo_height()
+        
+        # Use default dimensions if canvas hasn't been sized yet
+        if canvas_width <= 1:
+            canvas_width = 600
+        if canvas_height <= 1:
+            canvas_height = 400
+        
+        center_x = canvas_width // 2
+        center_y = canvas_height // 2
+        
+        if self.placeholder_id is not None:
+            # Update existing placeholder position
+            self.image_canvas.coords(self.placeholder_id, center_x, center_y)
+        else:
+            # Create new placeholder
+            self.placeholder_id = self.image_canvas.create_text(
+                center_x, center_y,
+                text="📷 No Image Loaded\n\n"
+                     "Click 'Select Image' button below\n"
+                     "to get started",
+                font=("Segoe UI", 16),
+                fill="#606060",
+                justify=tk.CENTER
+            )
+    
     def _bind_mousewheel(self):
         """Bind mousewheel to canvas for scrolling"""
         self.results_canvas.bind_all("<MouseWheel>", self._on_mousewheel)
@@ -399,6 +427,7 @@ class ColorDetectionApp:
             
             # Clear canvas and display
             self.image_canvas.delete("all")
+            self.placeholder_id = None  # Placeholder was deleted
             self.image_canvas.create_image(
                 self.display_offset_x,
                 self.display_offset_y,
@@ -585,6 +614,7 @@ class ColorDetectionApp:
         self.display_pil = None
         self.roi_coords = None
         self.rect_id = None
+        self.placeholder_id = None  # Will be recreated centered
         
         # Reset buttons
         self.analyze_btn.config(state=tk.DISABLED)
@@ -594,15 +624,7 @@ class ColorDetectionApp:
         self.clear_results()
         
         # Show placeholder
-        self.placeholder_id = self.image_canvas.create_text(
-            300, 200,
-            text="📷 No Image Loaded\n\n"
-                 "Click 'Select Image' button below\n"
-                 "to get started",
-            font=("Segoe UI", 16),
-            fill="#606060",
-            justify=tk.CENTER
-        )
+        self.center_placeholder()
         
         self.update_status("Reset complete - Load an image to get started", "#3a3a3a")
     
@@ -841,9 +863,16 @@ A: Scroll in the results panel using mouse wheel
             
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
             
+            pixels_umat = cv2.UMat(pixels)
+            best_labels = cv2.UMat((len(pixels), 1), cv2.CV_32S)
+            centers = cv2.UMat((k, 3), cv2.CV_32F)
+            
             _, labels, centers = cv2.kmeans(
-                pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
+                pixels_umat, k, best_labels, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
             )
+            
+            labels = best_labels.get()
+            centers = centers.get()
             
             centers = np.uint8(centers)
             labels = labels.flatten()
